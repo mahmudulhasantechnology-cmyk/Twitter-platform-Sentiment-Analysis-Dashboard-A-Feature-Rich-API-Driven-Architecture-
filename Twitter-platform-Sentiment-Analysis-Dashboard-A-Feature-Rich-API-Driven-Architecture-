@@ -4,7 +4,7 @@
   "metadata": {
     "colab": {
       "provenance": [],
-      "authorship_tag": "ABX9TyM0zpLS2OjZ0edQQQvF5NdZ",
+      "authorship_tag": "ABX9TyPEWLuexE9AvvuxE/LnryYh",
       "include_colab_link": true
     },
     "kernelspec": {
@@ -845,9 +845,86 @@
     },
     {
       "cell_type": "code",
+      "source": [
+        "import numpy as np\n",
+        "from sklearn.feature_extraction.text import TfidfVectorizer\n",
+        "\n",
+        "# ==========================================\n",
+        "# 1. INITIALIZE THE TF-IDF VECTORIZER\n",
+        "# ==========================================\n",
+        "# max_features: Limits the vocabulary size to the top 5,000 most important words\n",
+        "# ngram_range: Captures single words AND 2-word phrases (e.g., \"nice clean\", \"leaked controller\")\n",
+        "tfidf = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))\n",
+        "\n",
+        "# ==========================================\n",
+        "# 2. CONVERT TEXT TO NUMERICAL FEATURES (X)\n",
+        "# ==========================================\n",
+        "# We use the 'Cleaned_Text' column populated from your previous preprocessing cell\n",
+        "X_features = tfidf.fit_transform(df['Cleaned_Text'])\n",
+        "\n",
+        "# ==========================================\n",
+        "# 3. EXTRACT TARGET LABELS (y)\n",
+        "# ==========================================\n",
+        "# This extracts your target multi-class classifications (Positive, Negative, Neutral, Irrelevant)\n",
+        "y_labels = df['Sentiment'].values\n",
+        "\n",
+        "# ==========================================\n",
+        "# 4. VERIFY MATRIX METRICS\n",
+        "# ==========================================\n",
+        "print(\"--- Vectorization Pipeline Complete ---\")\n",
+        "print(f\"Total processed rows (Samples): {X_features.shape[0]}\")\n",
+        "print(f\"Total structural features (Vocabulary Columns): {X_features.shape[1]}\")\n",
+        "print(f\"Feature Array DataType: {X_features.dtype}\")\n",
+        "\n",
+        "# Quick view of a slice of the mathematical array representation of row 0\n",
+        "print(\"\\nFirst row numerical vector representation (Non-zero positions):\")\n",
+        "print(X_features[0])\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "P5TG6vj5SdZi",
+        "outputId": "8d7960ea-d0ac-4de9-8ba9-f8fae0af7eac"
+      },
+      "execution_count": 10,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "--- Vectorization Pipeline Complete ---\n",
+            "Total processed rows (Samples): 8556\n",
+            "Total structural features (Vocabulary Columns): 5000\n",
+            "Feature Array DataType: float64\n",
+            "\n",
+            "First row numerical vector representation (Non-zero positions):\n",
+            "<Compressed Sparse Row sparse matrix of dtype 'float64'\n",
+            "\twith 5 stored elements and shape (1, 5000)>\n",
+            "  Coords\tValues\n",
+            "  (0, 2744)\t0.2716415276580872\n",
+            "  (0, 1796)\t0.42368887596270444\n",
+            "  (0, 479)\t0.4213361396062669\n",
+            "  (0, 2781)\t0.5264664429604472\n",
+            "  (0, 1800)\t0.5403772374326136\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# Model Training"
+      ],
+      "metadata": {
+        "id": "XBBFFlPjTX6R"
+      }
+    },
+    {
+      "cell_type": "code",
       "source": [],
       "metadata": {
-        "id": "P5TG6vj5SdZi"
+        "id": "Otx7GkDmTTyM"
       },
       "execution_count": null,
       "outputs": []
