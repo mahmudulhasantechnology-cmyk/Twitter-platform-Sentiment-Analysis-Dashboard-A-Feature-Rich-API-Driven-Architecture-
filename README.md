@@ -261,12 +261,3 @@ Potential applications include:
 ## Author
 
 **Mahmudul Hasan**
-
-GitHub: [Your GitHub Profile](https://github.com/)
-
-Replace the profile link with your actual GitHub username.
-
-## License
-
-No license is specified in this project by default. If you intend to make the repository public for reuse, add an appropriate `LICENSE` file and update this section.
-
