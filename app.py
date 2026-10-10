@@ -1,77 +1,161 @@
-import os
-import joblib
-from flask import Flask, request, jsonify, render_template
+import streamlit as st
+import pandas as pd
+import pickle
+import re
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 
-app = Flask(__name__)
-
-# 1. Global Asset Ingestion: Load structural ML parameters into memory on startup
-try:
-    # Resolves exact file designations parsed from repository metrics
-    MODEL_PATH = "sentiment_svm_model.pkl"
-    VECTORIZER_PATH = "tfidf_vectorizer.pkl"
-    
-    if not os.path.exists(MODEL_PATH) or not os.path.exists(VECTORIZER_PATH):
-        raise FileNotFoundError("Missing local serialization assets (.pkl) in backend directory.")
-        
-    model = joblib.load(MODEL_PATH)
-    vectorizer = joblib.load(VECTORIZER_PATH)
-    print("🚀 Custom SVM Pipeline loaded successfully into active process memory.")
-except Exception as e:
-    print(f"❌ Critical Failure during ML asset ingestion: {e}")
-    model, vectorizer = None, None
-
-
-@app.route('/')
-def home():
-    """Fallback fallback route to ensure status checking across testing loops."""
-    return jsonify({
-        "status": "online",
-        "message": "Twitter Platform Sentiment Analysis Dashboard API Engine active.",
-        "assets_loaded": model is not None and vectorizer is not None
-    }), 200
-
-
-@app.route('/api/analyze', methods=['POST'])
-def analyze_sentiment():
-    """
-    Core Classification Processing Endpoint.
-    Expects JSON body structural context: {"text": "Your tweet sequence here"}
-    """
-    # Defensive programming validations
-    if not model or not vectorizer:
-        return jsonify({"error": "Internal Server Error: Machine learning pipeline uninitialized configuration."}), 500
-
-    data = request.get_json(silent=True)
-    if not data or 'text' not in data:
-        return jsonify({"error": "Bad Request: JSON body containing a 'text' key string parameters sequence is required."}), 400
-
-    user_text = str(data['text']).strip()
-    if not user_text:
-        return jsonify({"error": "Unprocessable Entity: Tracking text content cannot be blank space elements."}), 422
-
+# ==============================================================================
+# 1. INITIALIZE & CACHE DEPENDENCIES (Prevents reloading components on rerun)
+# ==============================================================================
+@st.cache_resource
+def download_nltk_resources():
     try:
-        # Process vector transformations natively using structural TF-IDF parameters
-        transformed_vector = vectorizer.transform([user_text])
-        
-        # Pull index value classification prediction output arrays natively
-        predicted_class = model.predict(transformed_vector)[0]
-        
-        # Return scannable standard JSON structure
-        return jsonify({
-            "success": True,
-            "input_text": user_text,
-            "prediction": str(predicted_class)
-        }), 200
+        nltk.data.find('tokenizers/punkt')
+        nltk.data.find('tokenizers/punkt_tab')
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        nltk.download('punkt')
+        nltk.download('punkt_tab')
+        nltk.download('stopwords')
 
-    except Exception as inner_err:
-        return jsonify({
-            "success": False,
-            "error": f"Mathematical mapping parsing execution error sequence: {str(inner_err)}"
-        }), 500
+download_nltk_resources()
+stop_words = set(stopwords.words('english'))
 
+@st.cache_resource
+def load_pipeline_assets():
+    """Loads the serialized TF-IDF vectorizer and the champion SVM model."""
+    try:
+        with open('tfidf_vectorizer.pkl', 'rb') as vf:
+            vectorizer = pickle.load(vf)
+        with open('sentiment_svm_model.pkl', 'rb') as mf:
+            model = pickle.load(mf)
+        return vectorizer, model
+    except FileNotFoundError as e:
+        st.error("⚠️ Pipeline asset files missing! Ensure 'tfidf_vectorizer.pkl' and 'sentiment_svm_model.pkl' are placed in the same directory as app.py.")
+        return None, None
 
-if __name__ == '__main__':
-    # Initialize deployment routing loops over standard local loop frameworks
-    app.run(debug=True, host='127.0.0.1', port=5000)
+tfidf, svm_model = load_pipeline_assets()
 
+# ==============================================================================
+# 2. DEFINE EXACT WORKSPACE CLEANING PIPELINE
+# ==============================================================================
+def clean_text(text):
+    """Exact text cleaning configuration extracted from the training pipeline."""
+    text = str(text).lower()
+    text = text.replace('<unk>', '')
+    text = re.sub(r'http\(\S+\vert{}www\S+\vert{}pic\.twitter\S+', '',\) text)
+    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    words = word_tokenize(text)
+    cleaned_words = [word for word in words if word not in stop_words]
+    return " ".join(cleaned_words)
 
+# ==============================================================================
+# 3. STREAMLIT FRONT-END LAYOUT & BRANDING
+# ==============================================================================
+st.set_page_config(page_title="Sentiment Analysis Dashboard", page_icon="📊", layout="wide")
+
+st.title("📊 Twitter Platform Sentiment Analysis Dashboard")
+st.markdown("A feature-rich, interactive workspace powered by a custom-trained **Linear Support Vector Machine** engine.")
+st.hr()
+
+# Sidebar for workspace choices
+st.sidebar.header("📁 Operational Modes")
+app_mode = st.sidebar.radio("Choose Analysis Target:", ["Single Text Analyzer", "Batch File Processor"])
+
+# ==============================================================================
+# MODE A: SINGLE TEXT ANALYZER
+# ==============================================================================
+if app_mode == "Single Text Analyzer":
+    st.subheader("📝 Real-Time Tweet Sentiment Analysis")
+    user_input = st.text_area("Type or paste a tweet below:", placeholder="Type something like: 'Wow, the new gameplay leak looks incredible! <unk>'")
+    
+    if st.button("Run Prediction Pipeline", type="primary"):
+        if user_input.strip() == "":
+            st.warning("Please type a valid phrase before analyzing.")
+        elif tfidf and svm_model:
+            # 1. Clean input
+            cleaned_phrase = clean_text(user_input)
+            
+            if cleaned_phrase.strip() == "":
+                st.error("The text provided contains only noise/stopwords. Please try a different phrase.")
+            else:
+                # 2. Transform and Predict
+                vector_input = tfidf.transform([cleaned_phrase])
+                prediction = svm_model.predict(vector_input)[0]
+                
+                # 3. UI Display Map
+                color_map = {
+                    "Positive": "green",
+                    "Negative": "red",
+                    "Neutral": "blue",
+                    "Irrelevant": "grey"
+                }
+                text_color = color_map.get(prediction, "black")
+                
+                st.markdown(f"### Predicted Sentiment: :{text_color}[{prediction}]")
+                
+                with st.expander("🔍 Review Structural Preprocessing Metrics"):
+                    st.write(f"**Original Input Text:** {user_input}")
+                    st.write(f"**Cleaned Processing String:** `{cleaned_phrase}`")
+
+# ==============================================================================
+# MODE B: BATCH FILE PROCESSOR
+# ==============================================================================
+else:
+    st.subheader("📂 Batch File Pipeline Processing Layout")
+    st.markdown("Upload an Excel dataset containing a text column to view platform distribution metrics.")
+    
+    uploaded_file = st.file_uploader("Upload Excel Matrix Sheet (.xlsx)", type=["xlsx"])
+    
+    if uploaded_file is not None and tfidf and svm_model:
+        # Load File
+        try:
+            df = pd.read_excel(uploaded_file, header=None)
+            
+            # Match schema structure safely
+            if len(df.columns) >= 4:
+                df.columns = ['ID', 'Brand', 'Sentiment_Actual', 'Text'] + list(df.columns[4:])
+            else:
+                st.warning("The system is mapping the last column as your text source since the dataset doesn't have 4 standard structural columns.")
+                df.rename(columns={df.columns[-1]: 'Text'}, inplace=True)
+                
+            # Drop empty data rows
+            df = df.dropna(subset=['Text'])
+            
+            with st.spinner("Executing pipeline predictions across all matrix samples..."):
+                # Clean, Transform, and Predict
+                df['Cleaned_Text'] = df['Text'].apply(clean_text)
+                
+                # Filter records that became empty strings to keep execution matrices safe
+                valid_mask = df['Cleaned_Text'].str.strip() != ''
+                df_valid = df[valid_mask].copy()
+                
+                if len(df_valid) == 0:
+                    st.error("All entries in the uploaded file became empty strings after text preprocessing.")
+                else:
+                    batch_vectors = tfidf.transform(df_valid['Cleaned_Text'])
+                    df_valid['Predicted_Sentiment'] = svm_model.predict(batch_vectors)
+                    
+                    st.success(f"Processing Complete! Successfully evaluated {len(df_valid)} valid records.")
+                    st.hr()
+                    
+                    # Layout grid components
+                    col1, col2 = st.columns([1, 1])
+                    
+                    with col1:
+                        st.markdown("### 📊 Classification Sentiment Spread")
+                        metrics_matrix = df_valid['Predicted_Sentiment'].value_counts()
+                        st.dataframe(metrics_matrix.rename("Total Mentions"))
+                        
+                    with col2:
+                        st.markdown("### 📈 Metric Distributions")
+                        # Bar Chart Visualization natively in Streamlit
+                        st.bar_chart(metrics_matrix)
+                    
+                    st.markdown("### 🔍 Sample Pipeline Matrix View")
+                    st.dataframe(df_valid[['Text', 'Cleaned_Text', 'Predicted_Sentiment']].head(20))
+                    
+        except Exception as error:
+            st.error(f"Error parsing data parameters: {error}")
